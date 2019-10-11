@@ -14,7 +14,8 @@ def hello_world():
     except:
         return {"Error": "Invalid url"}
     if "Accept-Ranges" in r.headers:
-        return {"range": True}
+        if r.headers["Accept-Ranges"] == "bytes":
+            return {"range": True}
     return {"range": False}
 
 
