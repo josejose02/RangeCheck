@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Hybrid Fetch Check</title>
+  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
+  <link href="http://dashboard.teltoo.com/static/dashboard/css/teltoo.main.css" rel="stylesheet" type="text/css">
+
+  <!--
+  <link href="http://dashboard.teltoo.com/static/dashboard/plugins/toastr/toastr.min.css" rel="stylesheet" type="text/css">
+  <link href="http://dashboard.teltoo.com/static/dashboard/plugins/switchery/switchery.min.css" rel="stylesheet" type="text/css">
+
+  <link href="http://dashboard.teltoo.com/static/dashboard/plugins/select2/dist-include/css/select2.css" rel="stylesheet" type="text/css">
+-->
+  <style>
+    ul {
+      padding-left: 1em;
+    }
+    .logo {
+      position: sticky;
+      bottom: 2%;
+      height: 40px;
+    }
+  </style>
+</head>
+<body>
+
+
+
+  <div class="container">
+
+
+    <div class="row text-center mt-3">
+      <div class="col-sm-3">
+        <img class='logo' src="http://dashboard.teltoo.com/static/dashboard/images/teltoo.png">
+      </div>
+      <div class="col-sm-9">
+        <h1>Hybrid Fetch Test</h1>
+      </div>
+    </div>
+
+    <div class="card-box">
+
+        <div class="input-group mb-3">
+          <input type="text" class="form-control" id="url" value="https://livestartover.atresmedia.com/antena3/master.m3u8" placeholder="Your playlist" aria-label="Your playlist" aria-describedby="button-addon2">
+          <div class="input-group-append">
+            <button class="btn btn-outline-secondary" type="button" id="button-addon2" onclick='start()'>Check</button>
+          </div>
+        </div>
+
+        <div class="row text-center">
+          <div class="col-sm"></div>
+          <div class="col-sm">
+            <h4> Single Range Check </h4>
+          </div>
+          <div class="col-sm">
+            <h4> Multi Range Check </h4>
+          </div>
+        </div>
+
+        <div class="row mt-2">
+          <div class="col-sm">
+            <h5> 206 response status </h5>
+          </div>
+          <div class="col-sm text-center">
+            <div id='single_check_206' role="alert">
+              <span class="sr-only">Loading...</span>
+            </div>
+          </div>
+          <div class="col-sm text-center">
+            <div id='multi_check_206'  role="alert">
+              <span class="sr-only">Loading...</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="row mt-2">
+          <div class="col-sm">
+            <h5> Content type </h5>
+          </div>
+          <div class="col-sm text-center">
+            <div id='single_check_content' role="alert">
+              <span class="sr-only">Loading...</span>
+            </div>
+          </div>
+          <div class="col-sm text-center">
+            <div id='multi_check_content'  role="alert">
+              <span class="sr-only">Loading...</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="row mt-2">
+          <div class="col-sm">
+            <h5> Multipart response </h5>
+          </div>
+          <div class="col-sm text-center">
+            <h6> Does not apply </h6>
+          </div>
+          <div class="col-sm text-center">
+            <div id='multi_check_multi'  role="alert">
+              <span class="sr-only">Loading...</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="row mt-4">
+          <h4> Full Report </h4>
+          <textarea class="form-control" id='console' rows="13" cols="150" readonly></textarea>
+        </div>
+    </div>
+
+  </div>
+
+  <script>
+
+    var doMultipart       = true;
+    var multipartExpected = false;
+
+    var checks = ['single_check_206','single_check_content','multi_check_206','multi_check_content','multi_check_multi'];
+    var current_element = 0;
+
+    const endpoint = 'http://127.0.0.1:5000/'
+    var url;
+
+    function change_all (class_name, inner_html){
+      current_element = 0;
+      for(var i = 0; i < checks.length; i++){
+        var e = document.getElementById(checks[i]);
+        e.className = class_name;
+        e.innerHTML = inner_html;
+      }
+    }
+
+    function update_alerts (positive){
+      var elemt = document.getElementById(checks[current_element]);
+      var content = '✔️';
+      if (positive) {
+        elemt.className = "alert-success";
+      }
+      else {
+        elemt.className = "alert-danger";
+        content = '❌'
+      }
+      elemt.innerHTML =  content;
+      current_element++;
+    }
+
+    function println (text) {
+        document.getElementById('console').value += text+'\n';
+    }
+
+    function start () {
+      url  = document.getElementById('url').value;
+      document.getElementById('console').value = '';
+      change_all('spinner-border text-dark','<span class="sr-only">Loading...</span>');
+
+      println ('Checking URL with one range: '+url+'\n...');
+
+      const xhr = new XMLHttpRequest();
+      xhr.responseType = 'json';
+      xhr.open('GET', endpoint + '?url=' + url);
+
+        xhr.onload    = handleXhrOnload;
+        xhr.onerror   = handleXhrOnError;
+        xhr.send();
+
+    }
+
+
+    function general(event, type) {
+        if (event[type]['code'] === 206){
+            println ('* Received 206 response status..... OK');
+            update_alerts(true);
+        } else {
+            println ('Received '+event[type]['code']+' response status. Expected 206..... FAIL');
+            update_alerts(false);
+        }
+
+        var contentType = event[type]['content_type'];
+        if (contentType){
+            println ('* Got contentType: '+contentType+'..... OK');
+            update_alerts(true);
+        } else {
+            println ('* Could not get contentType header..... FAIL');
+            update_alerts(false);
+        }
+    }
+
+    function handleXhrOnload (event) {
+        const res = event.target.response;
+        console.log(res);
+        if (res['error']) {
+            change_all("alert-danger", '❌');
+            println(res['log']);
+        } else {
+            general(res, 'single');
+            println ('\nChecking URL with multiple ranges: '+url+'\n...');
+            general(res, 'multi');
+
+            if (res['multi']['multipart']){
+                println ('* Got multipart response..... OK');
+                update_alerts(true);
+            } else {
+                println ('* Expected multipart response...... FAIL');
+                update_alerts(false);
+            }
+        }
+    }
+
+    function handleXhrOnError (e) {
+        update_alerts(false);
+        println ('Error on XHR: Check console output');
+        change_all("alert-danger", '❌');
+        console.log (e);
+    }
+
+  </script>
+
+</body>
+</html>
